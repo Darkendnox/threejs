@@ -1,6 +1,6 @@
 # Three.js Animated Line Tree Example
 
-This repository contains a minimal example that draws a simple tree using line segments in [Three.js](https://threejs.org/). The tree is animated so that each point appears every 0.5 seconds.
+This repository contains a minimal example that draws a tree using line segments in [Three.js](https://threejs.org/). The animation starts by drawing the two-step trunk before randomly growing and splitting branches.
 
 ## Usage
 
@@ -14,4 +14,5 @@ This repository contains a minimal example that draws a simple tree using line s
    ```
    Then open the provided URL in your web browser.
 
-The tree will gradually draw itself and resize with the browser window.
+The tree will gradually draw itself, with new branches appearing at random, and
+resize with the browser window.

@@ -21,39 +21,61 @@
     document.body.appendChild(renderer.domElement);
 
     const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
-    const points = [];
-    points.push(new THREE.Vector3(0, 0, 0));
-    points.push(new THREE.Vector3(0, 1, 0));
-
-    points.push(new THREE.Vector3(0, 1, 0));
-    points.push(new THREE.Vector3(-0.5, 1.5, 0));
-
-    points.push(new THREE.Vector3(0, 1, 0));
-    points.push(new THREE.Vector3(0.5, 1.5, 0));
-
-    points.push(new THREE.Vector3(-0.5, 1.5, 0));
-    points.push(new THREE.Vector3(-0.75, 2, 0));
-
-    points.push(new THREE.Vector3(-0.5, 1.5, 0));
-    points.push(new THREE.Vector3(-0.25, 2, 0));
-
-    points.push(new THREE.Vector3(0.5, 1.5, 0));
-    points.push(new THREE.Vector3(0.75, 2, 0));
-
-    points.push(new THREE.Vector3(0.5, 1.5, 0));
-    points.push(new THREE.Vector3(0.25, 2, 0));
-
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    geometry.setDrawRange(0, 0); // start with no points drawn
+    const geometry = new THREE.BufferGeometry();
     const tree = new THREE.LineSegments(geometry, material);
     scene.add(tree);
 
-    let index = 0;
+    const points = [];
+    const step = 0.5;
+    const stopProb = 0.3;
+    const splitProb = 0.4;
+    const spread = Math.PI / 6; // 30 degrees
+
+    function addSegment(a, b) {
+      points.push(a.clone(), b.clone());
+      geometry.setFromPoints(points);
+    }
+
+    let stepCount = 0;
+    let trunkEnd = new THREE.Vector3(0, 0, 0);
+    let branches = [];
+
     const interval = setInterval(() => {
-      index += 1;
-      geometry.setDrawRange(0, index);
-      if (index >= points.length) clearInterval(interval);
-    }, 500); // 0.5 seconds per point
+      if (stepCount === 0) {
+        const next = trunkEnd.clone().add(new THREE.Vector3(0, step, 0));
+        addSegment(trunkEnd, next);
+        trunkEnd = next;
+      } else if (stepCount === 1) {
+        const next = trunkEnd.clone().add(new THREE.Vector3(0, step, 0));
+        addSegment(trunkEnd, next);
+        trunkEnd = next;
+        branches.push({ point: trunkEnd.clone(), angle: Math.PI / 2 });
+      } else {
+        if (branches.length === 0) {
+          clearInterval(interval);
+          return;
+        }
+        const newBranches = [];
+        branches.forEach(branch => {
+          if (Math.random() < stopProb) return;
+          const dir = new THREE.Vector3(Math.cos(branch.angle), Math.sin(branch.angle), 0).multiplyScalar(step);
+          const end = branch.point.clone().add(dir);
+          addSegment(branch.point, end);
+
+          const angles = [branch.angle];
+          if (Math.random() < splitProb) {
+            angles.push(branch.angle + spread);
+            angles.push(branch.angle - spread);
+          }
+          angles.forEach(a => {
+            const jitter = (Math.random() - 0.5) * (spread / 2);
+            newBranches.push({ point: end.clone(), angle: a + jitter });
+          });
+        });
+        branches = newBranches;
+      }
+      stepCount += 1;
+    }, 500); // 0.5 seconds per step
 
     camera.position.z = 3;
 
