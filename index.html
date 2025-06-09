@@ -44,8 +44,16 @@
     points.push(new THREE.Vector3(0.25, 2, 0));
 
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    geometry.setDrawRange(0, 0); // start with no points drawn
     const tree = new THREE.LineSegments(geometry, material);
     scene.add(tree);
+
+    let index = 0;
+    const interval = setInterval(() => {
+      index += 1;
+      geometry.setDrawRange(0, index);
+      if (index >= points.length) clearInterval(interval);
+    }, 500); // 0.5 seconds per point
 
     camera.position.z = 3;
 
