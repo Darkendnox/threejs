@@ -1,6 +1,6 @@
-# Three.js Rotating Cube Example
+# Three.js Animated Line Tree Example
 
-This repository contains a minimal example of a rotating cube using [Three.js](https://threejs.org/).
+This repository contains a minimal example that draws a simple tree using line segments in [Three.js](https://threejs.org/). The tree is animated so that each point appears every 0.5 seconds.
 
 ## Usage
 
@@ -14,4 +14,4 @@ This repository contains a minimal example of a rotating cube using [Three.js](h
    ```
    Then open the provided URL in your web browser.
 
-The cube will rotate continuously and resize with the browser window.
+The tree will gradually draw itself and resize with the browser window.
