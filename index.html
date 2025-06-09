@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rotating Cube</title>
+  <title>Line Tree</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -20,17 +20,67 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshNormalMaterial();
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
+    const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+    const geometry = new THREE.BufferGeometry();
+    const tree = new THREE.LineSegments(geometry, material);
+    scene.add(tree);
 
-    camera.position.z = 2;
+    const points = [];
+    const step = 0.5;
+    const stopProb = 0.3;
+    const splitProb = 0.4;
+    const spread = Math.PI / 6; // 30 degrees
+
+    function addSegment(a, b) {
+      points.push(a.clone(), b.clone());
+      geometry.setFromPoints(points);
+    }
+
+    let stepCount = 0;
+    let trunkEnd = new THREE.Vector3(0, 0, 0);
+    let branches = [];
+
+    const interval = setInterval(() => {
+      if (stepCount === 0) {
+        const next = trunkEnd.clone().add(new THREE.Vector3(0, step, 0));
+        addSegment(trunkEnd, next);
+        trunkEnd = next;
+      } else if (stepCount === 1) {
+        const next = trunkEnd.clone().add(new THREE.Vector3(0, step, 0));
+        addSegment(trunkEnd, next);
+        trunkEnd = next;
+        branches.push({ point: trunkEnd.clone(), angle: Math.PI / 2 });
+      } else {
+        if (branches.length === 0) {
+          clearInterval(interval);
+          return;
+        }
+        const newBranches = [];
+        branches.forEach(branch => {
+          if (Math.random() < stopProb) return;
+          const dir = new THREE.Vector3(Math.cos(branch.angle), Math.sin(branch.angle), 0).multiplyScalar(step);
+          const end = branch.point.clone().add(dir);
+          addSegment(branch.point, end);
+
+          const angles = [branch.angle];
+          if (Math.random() < splitProb) {
+            angles.push(branch.angle + spread);
+            angles.push(branch.angle - spread);
+          }
+          angles.forEach(a => {
+            const jitter = (Math.random() - 0.5) * (spread / 2);
+            newBranches.push({ point: end.clone(), angle: a + jitter });
+          });
+        });
+        branches = newBranches;
+      }
+      stepCount += 1;
+    }, 500); // 0.5 seconds per step
+
+    camera.position.z = 3;
 
     function animate() {
       requestAnimationFrame(animate);
-      cube.rotation.x += 0.01;
-      cube.rotation.y += 0.01;
       renderer.render(scene, camera);
     }
     animate();
