@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Line Tree</title>
+  <title>Floating Network</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -15,72 +15,82 @@
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = 5;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
-    const geometry = new THREE.BufferGeometry();
-    const tree = new THREE.LineSegments(geometry, material);
-    scene.add(tree);
+    const POINT_COUNT = 60;
+    const RANGE = 5;
 
-    const points = [];
-    const step = 0.5;
-    const stopProb = 0.3;
-    const splitProb = 0.4;
-    const spread = Math.PI / 6; // 30 degrees
+    const pointGeometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(POINT_COUNT * 3);
+    for (let i = 0; i < POINT_COUNT; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * RANGE;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * RANGE;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * RANGE;
+    }
+    pointGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const pointMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05 });
+    const pointMesh = new THREE.Points(pointGeometry, pointMaterial);
+    scene.add(pointMesh);
 
-    function addSegment(a, b) {
-      points.push(a.clone(), b.clone());
-      geometry.setFromPoints(points);
+    const velocities = [];
+    for (let i = 0; i < POINT_COUNT; i++) {
+      velocities.push(new THREE.Vector3(
+        (Math.random() - 0.5) * 0.02,
+        (Math.random() - 0.5) * 0.02,
+        (Math.random() - 0.5) * 0.02
+      ));
     }
 
-    let stepCount = 0;
-    let trunkEnd = new THREE.Vector3(0, 0, 0);
-    let branches = [];
+    const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.6 });
+    const lineGeometry = new THREE.BufferGeometry();
+    const lineSegments = new THREE.LineSegments(lineGeometry, lineMaterial);
+    scene.add(lineSegments);
 
-    const interval = setInterval(() => {
-      if (stepCount === 0) {
-        const next = trunkEnd.clone().add(new THREE.Vector3(0, step, 0));
-        addSegment(trunkEnd, next);
-        trunkEnd = next;
-      } else if (stepCount === 1) {
-        const next = trunkEnd.clone().add(new THREE.Vector3(0, step, 0));
-        addSegment(trunkEnd, next);
-        trunkEnd = next;
-        branches.push({ point: trunkEnd.clone(), angle: Math.PI / 2 });
-      } else {
-        if (branches.length === 0) {
-          clearInterval(interval);
-          return;
-        }
-        const newBranches = [];
-        branches.forEach(branch => {
-          if (Math.random() < stopProb) return;
-          const dir = new THREE.Vector3(Math.cos(branch.angle), Math.sin(branch.angle), 0).multiplyScalar(step);
-          const end = branch.point.clone().add(dir);
-          addSegment(branch.point, end);
+    function updatePoints() {
+      const pos = pointGeometry.attributes.position.array;
+      for (let i = 0; i < POINT_COUNT; i++) {
+        const idx = i * 3;
+        pos[idx] += velocities[i].x;
+        pos[idx + 1] += velocities[i].y;
+        pos[idx + 2] += velocities[i].z;
 
-          const angles = [branch.angle];
-          if (Math.random() < splitProb) {
-            angles.push(branch.angle + spread);
-            angles.push(branch.angle - spread);
-          }
-          angles.forEach(a => {
-            const jitter = (Math.random() - 0.5) * (spread / 2);
-            newBranches.push({ point: end.clone(), angle: a + jitter });
-          });
-        });
-        branches = newBranches;
+        if (pos[idx] > RANGE / 2 || pos[idx] < -RANGE / 2) velocities[i].x *= -1;
+        if (pos[idx + 1] > RANGE / 2 || pos[idx + 1] < -RANGE / 2) velocities[i].y *= -1;
+        if (pos[idx + 2] > RANGE / 2 || pos[idx + 2] < -RANGE / 2) velocities[i].z *= -1;
       }
-      stepCount += 1;
-    }, 500); // 0.5 seconds per step
+      pointGeometry.attributes.position.needsUpdate = true;
+    }
 
-    camera.position.z = 3;
+    function updateConnections() {
+      const pos = pointGeometry.attributes.position.array;
+      const vertices = [];
+      const threshold = 1.5 * (5 / camera.position.z);
+      for (let i = 0; i < POINT_COUNT; i++) {
+        const i3 = i * 3;
+        const x1 = pos[i3], y1 = pos[i3 + 1], z1 = pos[i3 + 2];
+        for (let j = i + 1; j < POINT_COUNT; j++) {
+          const j3 = j * 3;
+          const dx = x1 - pos[j3];
+          const dy = y1 - pos[j3 + 1];
+          const dz = z1 - pos[j3 + 2];
+          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (dist < threshold) {
+            vertices.push(x1, y1, z1, pos[j3], pos[j3 + 1], pos[j3 + 2]);
+          }
+        }
+      }
+      lineGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+      lineGeometry.computeBoundingSphere();
+    }
 
     function animate() {
       requestAnimationFrame(animate);
+      updatePoints();
+      updateConnections();
       renderer.render(scene, camera);
     }
     animate();
@@ -89,6 +99,11 @@
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    window.addEventListener('wheel', (e) => {
+      camera.position.z += e.deltaY * 0.01;
+      camera.position.z = Math.max(1, Math.min(camera.position.z, 20));
     });
   </script>
 </body>
